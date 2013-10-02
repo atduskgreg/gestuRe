@@ -31,9 +31,17 @@ class Libsvm extends Classifier {
     classifier.params.kernel_type = SVM.RBF_KERNEL;
 
     SVMProblem problem = new SVMProblem();
-    problem.setNumFeatures(2);
+    problem.setNumFeatures(numFeatures);
     problem.setSampleData(labels, trainingVectors);
     classifier.train(problem);
+  }
+  
+  void save(String filename){
+    classifier.saveModel(filename);
+  }
+  
+  void load(String filename){
+    classifier.loadModel(filename, numFeatures);
   }
 
   // Use this function to get a prediction, after having trained the algorithm.

@@ -35,6 +35,14 @@ class Libsvm extends Classifier {
     problem.setSampleData(labels, trainingVectors);
     classifier.train(problem);
   }
+  
+  void save(String filename){
+    classifier.saveModel(filename);
+  }
+  
+  void load(String filename){
+    classifier.loadModel(filename, numFeatures);
+  }
 
   // Use this function to get a prediction, after having trained the algorithm.
   double predict(Sample sample) {

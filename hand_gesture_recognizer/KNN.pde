@@ -6,6 +6,7 @@ class KNN extends Classifier {
   KNN(PApplet parent){
     super(parent);
   }
+  
   void train() {  
     Mat trainingMat = new Mat(trainingSamples.size(), trainingSamples.get(0).featureVector.length, CvType.CV_32FC1);
     Mat labelMat = new Mat( trainingSamples.size(), 1, CvType.CV_32FC1);

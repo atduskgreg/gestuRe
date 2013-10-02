@@ -35,6 +35,14 @@ class Classifier {
     this.numFeatures = numFeatures;
   }
   
+  void save(String filename){
+    classifier.save(filename);
+  }
+  
+  void load(String filename){
+    classifier.load(filename);
+  }
+  
   // implemented in sub-class
   double predict(Sample sample){
     return 0.0;

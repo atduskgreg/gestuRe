@@ -13,7 +13,7 @@ import hog.*;
 import java.util.Map;
 import java.util.Arrays;
 
-RandomForest classifier;
+Libsvm classifier;
 OpenCV opencv;
 
 Capture video;
@@ -27,9 +27,13 @@ PImage testImage;
 int rectW = 150;
 int rectH = 150;
 
+int currentLabel = 0;
+ boolean trained = false;
+
 void setup(){
   opencv = new OpenCV(this,0,0);
-  classifier = new RandomForest(this);
+  classifier = new Libsvm(this);
+  classifier.setNumFeatures(324);
   
   video = new Capture(this, w/2, h/2);
   video.start();
@@ -37,6 +41,8 @@ void setup(){
   size(w/2 + 60,h/2);
   
   trainingSamples = new ArrayList<Sample>();
+  
+ 
   
   testImage = createImage(50, 50, RGB);
 }
@@ -51,8 +57,35 @@ void draw() {
   
   testImage.copy(video, video.width - rectW - (video.width - rectW)/2, video.height - rectH - (video.height - rectH)/2, rectW, rectH, 0, 0, 50, 50);
   
-  image(testImage, width-testImage.width, 0);
+  if(trained){
+    double prediction = classifier.predict( new Sample(gradientsForImage(testImage )) );
+    text("label: " + prediction, width - 55, 60);
+  }
   
+  text("(t)rain", width-55, 100);
+  
+  text("(a)dd\nlabel\nto: " + currentLabel + "\n(n)next", width - 55, height- 50);
+  
+  
+  image(testImage, width-testImage.width, 0); 
+}
+
+void keyPressed(){
+  if(key == 'n'){
+    currentLabel++;
+    if(currentLabel > 5){
+      currentLabel = 0;
+    }
+  }
+  
+  if(key == 'a'){
+    classifier.addTrainingSample( new Sample(gradientsForImage( testImage ), currentLabel) );
+  }
+  
+  if(key == 't'){
+    classifier.train();
+    trained = true;
+  }  
 }
 
 void captureEvent(Capture c) {
