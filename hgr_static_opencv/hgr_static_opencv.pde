@@ -5,8 +5,16 @@ import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
 import org.opencv.core.TermCriteria;
 
-import hog.*;
-PixelGradientVector[][] pixelGradients;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfFloat;
+import org.opencv.core.MatOfPoint;
+
+import org.opencv.objdetect.HOGDescriptor;
+
+import org.opencv.core.Size;
+import org.opencv.core.Scalar;
+import org.opencv.core.Core;
+
 
 import java.util.Map;
 import java.util.Arrays;
@@ -25,7 +33,8 @@ String[] trainingFilenames, testFilenames;
 void setup(){
     size(200, 100); 
 
-  opencv = new OpenCV(this,0,0);
+  opencv = new OpenCV(this,50,50);
+  
   classifier = new Libsvm(this);
   
   
@@ -61,11 +70,12 @@ void setup(){
     }
     
     float[] vector = gradientsForImage(loadImage("train/" + trainingFilenames[i]));
+    println(vector.length);
     Sample sample = new Sample(vector, label);
     
     classifier.addTrainingSample(sample);
   }
-  classifier.setNumFeatures(324 );
+  classifier.setNumFeatures(1728 );
   
   classifier.train();
   
@@ -122,7 +132,7 @@ void draw() {
 
 
   text(result, testImage.width + 10, 20);
-  pushMatrix();
+  //pushMatrix();
   
 }
 
@@ -135,33 +145,26 @@ void keyPressed() {
 float[] gradientsForImage(PImage img) {
   // resize the images to a consistent size:
   img.resize(50, 50);
+  opencv.loadImage(img);
 
-  // settings for Histogram of Oriented Gradients
-  // (probably don't change these)
-  int window_width=64;
-  int window_height=128;
-  int bins = 9;
-  int cell_size = 8;
-  int block_size = 2;
-  boolean signed = false;
-  int overlap = 0;
-  int stride=16;
-  int number_of_resizes=5;
-
-  // a bunch of unecessarily verbose HOG code
-  HOG_Factory hog = HOG.createInstance();
-  GradientsComputation gc=hog.createGradientsComputation();
-  Voter voter=MagnitudeItselfVoter.createMagnitudeItselfVoter();
-  HistogramsComputation hc=hog.createHistogramsComputation( bins, cell_size, cell_size, signed, voter);
-  Norm norm=L2_Norm.createL2_Norm(0.1);
-  BlocksComputation bc=hog.createBlocksComputation(block_size, block_size, overlap, norm);
-  pixelGradients = gc.computeGradients(img, this);
+  Mat angleMat, gradMat;
+  Size winSize = new Size(40,24);
+  Size blockSize = new Size(8, 8);
+  Size blockStride = new Size(16, 16);
+  Size cellSize = new Size(2, 2);
+  int nBins = 9;
+  Size winStride = new Size(16,16);
+  Size padding = new Size(0,0);
   
-  hog.Histogram[][] histograms = hc.computeHistograms(pixelGradients);
-  
-  Block[][] blocks = bc.computeBlocks(histograms);
-  Block[][] normalizedBlocks = bc.normalizeBlocks(blocks);
-  DescriptorComputation dc=hog.createDescriptorComputation();    
+  HOGDescriptor descriptor = new HOGDescriptor(winSize, blockSize, blockStride, cellSize, nBins);
 
-  return dc.computeDescriptor(normalizedBlocks);
+  MatOfFloat descriptors = new MatOfFloat();
+
+  //descriptor.compute(opencv.getGray(), descriptors);
+  //Size winStride, Size padding, MatOfPoint locations
+  MatOfPoint locations = new MatOfPoint();
+  descriptor.compute(opencv.getGray(), descriptors, winStride, padding, locations);
+
+  
+  return descriptors.toArray();
 }
