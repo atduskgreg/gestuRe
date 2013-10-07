@@ -1,3 +1,8 @@
+// TODO:
+// * suggest adding samples when label is changing rapidly
+// * suggest adding samples when confidence gap is too low
+
+
 import processing.video.*;
 
 import gab.opencv.*;
@@ -43,6 +48,11 @@ boolean trained = false;
 int numClasses = 5;
 
 PImage defaultImage;
+double confidenceGap = 1.0;
+float confidenceGapThreshold = 0.2;
+int timesOverGap = 0; // per second
+double secondStarted = 0;
+int countThreshold = 10;
 
 void setup() {
   opencv = new OpenCV(this, 50, 50);
@@ -57,14 +67,14 @@ void setup() {
   trainingSamples = new ArrayList<Sample>();
 
   classImages = new ArrayList<ArrayList<PImage>>();
-  for(int i = 0; i < numClasses; i++){
+  for (int i = 0; i < numClasses; i++) {
     classImages.add(new ArrayList<PImage>());
   }
 
   testImage = createImage(50, 50, RGB);
-  defaultImage = createImage(50,50,RGB);
-  for(int i = 0; i < defaultImage.pixels.length; i++){
-    defaultImage.pixels[i] = color(0,255,0);
+  defaultImage = createImage(50, 50, RGB);
+  for (int i = 0; i < defaultImage.pixels.length; i++) {
+    defaultImage.pixels[i] = color(0, 255, 0);
   }
 }
 
@@ -78,73 +88,94 @@ void draw() {
 
   testImage.copy(video, video.width - rectW - (video.width - rectW)/2, video.height - rectH - (video.height - rectH)/2, rectW, rectH, 0, 0, 50, 50);
 
-  if (trained) {
-    double[] confidence = new double[5];
-    double prediction = classifier.predict( new Sample(gradientsForImage(testImage )), confidence);
+  
 
+  if (trained) {
+    double[] confidence = new double[numClasses];
+    double prediction = classifier.predict( new Sample(gradientsForImage(testImage )), confidence);
 
     TreeMap<Double, PImage> map = new TreeMap<Double, PImage>();
     for ( int i = 0; i < confidence.length; i++ ) {
-      if(classImages.get(i).size() > 0){
+      if (classImages.get(i).size() > 0) {
         map.put( confidence[i], classImages.get(i).get(0) );
-      } else {
+      } 
+      else {
         map.put( confidence[i], defaultImage );
       }
     }
 
+    Arrays.sort(confidence);
+    confidenceGap = confidence[confidence.length-1] - confidence[confidence.length-2];
 
-    //Arrays.sort(indexes, comparator);
-    text("label: " + prediction, w/2+10, 60);
+    if(millis() - secondStarted > 1000){
+      println("a second: " + (millis() - secondStarted));
+      secondStarted = millis();
+      timesOverGap = 0;
+    }
+
+    if(confidenceGap < confidenceGapThreshold){
+          timesOverGap++;
+    }    
+    
+    println("ToG: " + timesOverGap);
+   
+    text("label: " + prediction, w/2+70, 60);
     image(classImages.get((int)prediction).get(0), w/2+ 70, 0);
 
-    //String report = "CONF\n";
-    String[] report = {
-      "", "", "", "", ""
-    };
+    pushMatrix();
+    translate(w/2+10, 85);
 
-    int i = 0;
-    //for (int i = 0; i < 5; i++) {
-      pushMatrix();
-      translate(w/2+10, 75);
     for (Map.Entry entry : map.entrySet() ) {
-      image((PImage)entry.getValue(),0,0, 20,20);
-      translate(0, 25);
+      image((PImage)entry.getValue(), 0, 0);
+      translate(0, 55);
       double k = (Double)entry.getKey();
-      report[i] = nfc((float)k, 2) + "\n\n";
-      i++;
+      text(nfc((float)k, 2), 55, -40);
     }
     popMatrix();
-    text("CONF\n" + join(report, ""), w/2+35, 75);
+    text("CONF", w/2+75, 75);
   }
 
-  text("(t)rain", w/2+10, 160);
+  text("(t)rain", 10, h/2+40);
 
-  text("(a)dd\nlabel\nto: " + currentLabel + "\n(n)next", w/2+10, height- 50);
+  text("(a)dd label to: " + currentLabel, 10, h/2 + 10);
 
   image(testImage, w/2+ 10, 0);
-  
-  
+
+
   pushMatrix();
   translate(w/2 + 160, 0);
-  for(int i = 0; i < classImages.size(); i++){
+  for (int i = 0; i < classImages.size(); i++) {
     pushMatrix();
+
     translate(i*50, 0);
-    text("C" + i, 0,15);
+    if (i == currentLabel) {
+      pushStyle();
+      noFill();
+      stroke(0, 255, 0);
+      rect(-5, 0, 55, height);
+      popStyle();
+    }
+    text("C" + i, 0, 15);
     ArrayList<PImage> images = classImages.get(i);
-    for(int j = 0; j < images.size(); j++){
+    for (int j = 0; j < images.size(); j++) {
       image(images.get(j), 0, 50*j + 25);
     }
     popMatrix();
   }
   popMatrix();
-  
 }
 
 void keyPressed() {
-  if (key == 'n') {
+  if (keyCode == RIGHT) {
     currentLabel++;
-    if (currentLabel > 5) {
+    if (currentLabel == numClasses) {
       currentLabel = 0;
+    }
+  }
+  if (keyCode == LEFT) {
+    currentLabel--;
+    if (currentLabel < 0) {
+      currentLabel = numClasses-1;
     }
   }
 
@@ -163,10 +194,10 @@ void captureEvent(Capture c) {
 }
 
 float[] gradientsForImage(PImage img, int label) {
-  img.resize(50,50);
+  img.resize(50, 50);
   img.updatePixels();
-  PImage labeledImage = createImage(50,50, RGB);
-  labeledImage.copy(img, 0,0, 50,50, 0,0,50,50);
+  PImage labeledImage = createImage(50, 50, RGB);
+  labeledImage.copy(img, 0, 0, 50, 50, 0, 0, 50, 50);
   labeledImage.updatePixels();
   classImages.get(label).add(labeledImage);
   return gradientsForImage(img);
