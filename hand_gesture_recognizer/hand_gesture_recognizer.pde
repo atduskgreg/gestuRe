@@ -26,6 +26,8 @@ OpenCV opencv;
 
 Capture video;
 
+ArrayList<ArrayList<PImage>> classImages;
+
 ArrayList<Sample> trainingSamples;
 
 int w = 640;
@@ -38,6 +40,10 @@ int rectH = 150;
 int currentLabel = 0;
 boolean trained = false;
 
+int numClasses = 5;
+
+PImage defaultImage;
+
 void setup() {
   opencv = new OpenCV(this, 50, 50);
   classifier = new Libsvm(this);
@@ -46,11 +52,20 @@ void setup() {
   video = new Capture(this, w/2, h/2);
   video.start();
 
-  size(w, h/2);
+  size(1000, 600);
 
   trainingSamples = new ArrayList<Sample>();
 
+  classImages = new ArrayList<ArrayList<PImage>>();
+  for(int i = 0; i < numClasses; i++){
+    classImages.add(new ArrayList<PImage>());
+  }
+
   testImage = createImage(50, 50, RGB);
+  defaultImage = createImage(50,50,RGB);
+  for(int i = 0; i < defaultImage.pixels.length; i++){
+    defaultImage.pixels[i] = color(0,255,0);
+  }
 }
 
 void draw() {
@@ -68,36 +83,61 @@ void draw() {
     double prediction = classifier.predict( new Sample(gradientsForImage(testImage )), confidence);
 
 
-    TreeMap<Double, Integer> map = new TreeMap<Double, Integer>();
+    TreeMap<Double, PImage> map = new TreeMap<Double, PImage>();
     for ( int i = 0; i < confidence.length; i++ ) {
-      map.put( confidence[i], i );
+      if(classImages.get(i).size() > 0){
+        map.put( confidence[i], classImages.get(i).get(0) );
+      } else {
+        map.put( confidence[i], defaultImage );
+      }
     }
 
 
     //Arrays.sort(indexes, comparator);
     text("label: " + prediction, w/2+10, 60);
+    image(classImages.get((int)prediction).get(0), w/2+ 70, 0);
 
     //String report = "CONF\n";
     String[] report = {
       "", "", "", "", ""
     };
 
-    int i = 4;
+    int i = 0;
     //for (int i = 0; i < 5; i++) {
+      pushMatrix();
+      translate(w/2+10, 75);
     for (Map.Entry entry : map.entrySet() ) {
+      image((PImage)entry.getValue(),0,0, 20,20);
+      translate(0, 25);
       double k = (Double)entry.getKey();
-      report[i] = entry.getValue() + ": " + nfc((float)k, 2) + "\n";
-      i--;
+      report[i] = nfc((float)k, 2) + "\n\n";
+      i++;
     }
-    text("CONF\n" + join(report, ""), w/2+10, 75);
+    popMatrix();
+    text("CONF\n" + join(report, ""), w/2+35, 75);
   }
 
   text("(t)rain", w/2+10, 160);
 
   text("(a)dd\nlabel\nto: " + currentLabel + "\n(n)next", w/2+10, height- 50);
 
-
   image(testImage, w/2+ 10, 0);
+  
+  
+  pushMatrix();
+  translate(w/2 + 160, 0);
+  for(int i = 0; i < classImages.size(); i++){
+    pushMatrix();
+    translate(i*50, 0);
+    text("C" + i, 0,15);
+    ArrayList<PImage> images = classImages.get(i);
+    for(int j = 0; j < images.size(); j++){
+      image(images.get(j), 0, 50*j + 25);
+    }
+    popMatrix();
+  }
+  popMatrix();
+  
 }
 
 void keyPressed() {
@@ -109,7 +149,7 @@ void keyPressed() {
   }
 
   if (key == 'a') {
-    classifier.addTrainingSample( new Sample(gradientsForImage( testImage ), currentLabel) );
+    classifier.addTrainingSample( new Sample(gradientsForImage( testImage, currentLabel ), currentLabel) );
   }
 
   if (key == 't') {
@@ -122,9 +162,18 @@ void captureEvent(Capture c) {
   c.read();
 }
 
+float[] gradientsForImage(PImage img, int label) {
+  img.resize(50,50);
+  img.updatePixels();
+  PImage labeledImage = createImage(50,50, RGB);
+  labeledImage.copy(img, 0,0, 50,50, 0,0,50,50);
+  labeledImage.updatePixels();
+  classImages.get(label).add(labeledImage);
+  return gradientsForImage(img);
+}
+
 float[] gradientsForImage(PImage img) {
   // resize the images to a consistent size:
-  img.resize(50, 50);
   opencv.loadImage(img);
 
   Mat angleMat, gradMat;
