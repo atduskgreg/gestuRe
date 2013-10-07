@@ -31,13 +31,13 @@ class RandomForest extends Classifier {
     params.set_min_sample_count(5);
     params.set_regression_accuracy(1);
     params.set_use_surrogates(false);
-    params.set_max_categories(7);
+    params.set_max_categories(15);
     params.set_cv_folds(5);
     //params.set_truncate_pruned_tree(true);
     //params.set_use_1se_rule(true);
     // priors?????
     params.set_calc_var_importance(true);
-    params.set_nactive_vars(numFeatures);
+   // params.set_nactive_vars(15);
     params.set_term_crit(new TermCriteria(TermCriteria.MAX_ITER + TermCriteria.EPS, 100, 0.00f));
 
     forest = new CvRTrees();

@@ -48,4 +48,8 @@ class Libsvm extends Classifier {
   double predict(Sample sample) {
     return classifier.test(doubleToFloat(sample.featureVector));
   }
+  
+  double predict(Sample sample, double[] confidence){
+    return classifier.test(doubleToFloat(sample.featureVector), confidence);
+  }
 }

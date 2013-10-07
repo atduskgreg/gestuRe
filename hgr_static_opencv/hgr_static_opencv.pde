@@ -165,6 +165,5 @@ float[] gradientsForImage(PImage img) {
   MatOfPoint locations = new MatOfPoint();
   descriptor.compute(opencv.getGray(), descriptors, winStride, padding, locations);
 
-  
   return descriptors.toArray();
 }
