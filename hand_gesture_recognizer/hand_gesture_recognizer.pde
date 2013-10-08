@@ -2,6 +2,10 @@
 // * suggest adding samples when label is changing rapidly
 // * suggest adding samples when confidence gap is too low
 
+// * pop-up active mode display when we want a label
+// * give the user the ability to turn the active mode display off
+// * give the user the ability to set the threshold for the active mode display
+// * show a progress bar indicating when acttive mode display will appear
 
 import processing.video.*;
 
@@ -54,6 +58,19 @@ int timesOverGap = 0; // per second
 double secondStarted = 0;
 int countThreshold = 10;
 
+boolean activeMode = false;
+boolean prevMode = false;
+PGraphics activeDisplay;
+PImage imageToClassify;
+
+double timePerSuggestion = 1000;
+double lastSuggestionAt = 0;
+int currentSuggestion = 0;
+
+PFont font;
+PFont bold;
+
+
 void setup() {
   opencv = new OpenCV(this, 50, 50);
   classifier = new Libsvm(this);
@@ -76,6 +93,47 @@ void setup() {
   for (int i = 0; i < defaultImage.pixels.length; i++) {
     defaultImage.pixels[i] = color(0, 255, 0);
   }
+
+  font = loadFont("Helvetica-48.vlw");
+  bold = loadFont("Helvetica-Bold-48.vlw");
+
+  imageToClassify = createImage(rectW, rectH, RGB);
+
+  activeDisplay = createGraphics(400, 300);
+}
+
+void populateActiveDisplay() {
+  if(!prevMode && activeMode){
+    imageToClassify.copy(video, video.width - rectW - (video.width - rectW)/2, video.height - rectH - (video.height - rectH)/2, rectW, rectH, 0, 0, rectW, rectH);
+    lastSuggestionAt = millis();  
+  }
+  
+  activeDisplay.beginDraw();
+  activeDisplay.background(255, 0, 0);
+  activeDisplay.noStroke();
+  activeDisplay.fill(100);
+  activeDisplay.rect(2, 2, activeDisplay.width-4, activeDisplay.height-4);
+
+  activeDisplay.stroke(255);
+  activeDisplay.fill(0);
+  activeDisplay.textFont(bold, 16);
+  activeDisplay.text("PLEASE SELECT A LABEL", 20, 20);
+  
+ 
+
+  activeDisplay.textFont(bold, 14);
+
+  activeDisplay.text("Tap SPACE when correct label is displayed.", 20, 50);
+  activeDisplay.image(imageToClassify, 10, 70);
+  
+   if((millis() - lastSuggestionAt) > timePerSuggestion){
+     currentSuggestion++; 
+     lastSuggestionAt = millis();
+  }
+
+  activeDisplay.text(currentSuggestion, 100, 70);
+
+  activeDisplay.endDraw();
 }
 
 void draw() {
@@ -88,7 +146,10 @@ void draw() {
 
   testImage.copy(video, video.width - rectW - (video.width - rectW)/2, video.height - rectH - (video.height - rectH)/2, rectW, rectH, 0, 0, 50, 50);
 
-  
+
+  smooth();
+    textFont(font, 16);
+
 
   if (trained) {
     double[] confidence = new double[numClasses];
@@ -107,18 +168,17 @@ void draw() {
     Arrays.sort(confidence);
     confidenceGap = confidence[confidence.length-1] - confidence[confidence.length-2];
 
-    if(millis() - secondStarted > 1000){
-      println("a second: " + (millis() - secondStarted));
+    if (millis() - secondStarted > 1000) {
       secondStarted = millis();
       timesOverGap = 0;
     }
 
-    if(confidenceGap < confidenceGapThreshold){
-          timesOverGap++;
+    if (confidenceGap < confidenceGapThreshold) {
+      timesOverGap++;
     }    
-    
-    println("ToG: " + timesOverGap);
-   
+
+
+
     text("label: " + prediction, w/2+70, 60);
     image(classImages.get((int)prediction).get(0), w/2+ 70, 0);
 
@@ -163,6 +223,19 @@ void draw() {
     popMatrix();
   }
   popMatrix();
+
+  prevMode = activeMode;
+
+  if (timesOverGap > countThreshold) {
+    text("TRAIN", w/2 + 10, 60);
+    activeMode = true;
+  }
+
+  if (activeMode) {
+    populateActiveDisplay();
+    image(activeDisplay, width/2-activeDisplay.width/2, height/2-activeDisplay.height/2);
+  }
+  
 }
 
 void keyPressed() {
@@ -186,7 +259,7 @@ void keyPressed() {
   if (key == 't') {
     classifier.train();
     trained = true;
-  }
+  }  
 }
 
 void captureEvent(Capture c) {
