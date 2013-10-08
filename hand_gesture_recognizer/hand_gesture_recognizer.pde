@@ -29,6 +29,7 @@ import org.opencv.core.Core;
 import java.util.Map;
 import java.util.Arrays;
 import java.util.TreeMap;
+import java.util.Collection;
 
 Libsvm classifier;
 OpenCV opencv;
@@ -36,7 +37,6 @@ OpenCV opencv;
 Capture video;
 
 ArrayList<ArrayList<PImage>> classImages;
-
 ArrayList<Sample> trainingSamples;
 
 int w = 640;
@@ -50,6 +50,10 @@ int currentLabel = 0;
 boolean trained = false;
 
 int numClasses = 5;
+
+TreeMap<Double, PImage> sortedClassesSnapshot;
+TreeMap<Double, PImage> sortedClasses;
+
 
 PImage defaultImage;
 double confidenceGap = 1.0;
@@ -66,6 +70,7 @@ PImage imageToClassify;
 double timePerSuggestion = 1000;
 double lastSuggestionAt = 0;
 int currentSuggestion = 0;
+boolean suggestionAccepted = false;
 
 PFont font;
 PFont bold;
@@ -106,6 +111,8 @@ void populateActiveDisplay() {
   if(!prevMode && activeMode){
     imageToClassify.copy(video, video.width - rectW - (video.width - rectW)/2, video.height - rectH - (video.height - rectH)/2, rectW, rectH, 0, 0, rectW, rectH);
     lastSuggestionAt = millis();  
+    sortedClassesSnapshot = (TreeMap<Double,PImage>)sortedClasses.clone();
+    suggestionAccepted = false;
   }
   
   activeDisplay.beginDraw();
@@ -118,20 +125,25 @@ void populateActiveDisplay() {
   activeDisplay.fill(0);
   activeDisplay.textFont(bold, 16);
   activeDisplay.text("PLEASE SELECT A LABEL", 20, 20);
-  
- 
 
-  activeDisplay.textFont(bold, 14);
+  activeDisplay.textFont(font, 14);
 
   activeDisplay.text("Tap SPACE when correct label is displayed.", 20, 50);
   activeDisplay.image(imageToClassify, 10, 70);
   
+   Collection<PImage> sortedClassImages = sortedClassesSnapshot.values();
+
+  
    if((millis() - lastSuggestionAt) > timePerSuggestion){
      currentSuggestion++; 
+     if(currentSuggestion > (sortedClassImages.size() - 1)){
+       currentSuggestion = 0;
+     }
      lastSuggestionAt = millis();
   }
+  
+  activeDisplay.image((PImage)sortedClassImages.toArray()[currentSuggestion], 180, 100);  
 
-  activeDisplay.text(currentSuggestion, 100, 70);
 
   activeDisplay.endDraw();
 }
@@ -155,13 +167,13 @@ void draw() {
     double[] confidence = new double[numClasses];
     double prediction = classifier.predict( new Sample(gradientsForImage(testImage )), confidence);
 
-    TreeMap<Double, PImage> map = new TreeMap<Double, PImage>();
+    sortedClasses = new TreeMap<Double, PImage>();
     for ( int i = 0; i < confidence.length; i++ ) {
       if (classImages.get(i).size() > 0) {
-        map.put( confidence[i], classImages.get(i).get(0) );
+        sortedClasses.put( confidence[i], classImages.get(i).get(0) );
       } 
       else {
-        map.put( confidence[i], defaultImage );
+        sortedClasses.put( confidence[i], defaultImage );
       }
     }
 
@@ -185,7 +197,7 @@ void draw() {
     pushMatrix();
     translate(w/2+10, 85);
 
-    for (Map.Entry entry : map.entrySet() ) {
+    for (Map.Entry entry : sortedClasses.entrySet() ) {
       image((PImage)entry.getValue(), 0, 0);
       translate(0, 55);
       double k = (Double)entry.getKey();
@@ -250,6 +262,10 @@ void keyPressed() {
     if (currentLabel < 0) {
       currentLabel = numClasses-1;
     }
+  }
+  
+  if(key == ' '){
+    suggestionAccepted = true;
   }
 
   if (key == 'a') {
