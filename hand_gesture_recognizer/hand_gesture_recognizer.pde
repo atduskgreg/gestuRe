@@ -1,13 +1,11 @@
 // TODO:
-// * suggest adding samples when label is changing rapidly
-// * suggest adding samples when confidence gap is too low
-
-// * pop-up active mode display when we want a label
 // * give the user the ability to turn the active mode display off
 // * give the user the ability to set the threshold for the active mode display
 // * show a progress bar indicating when acttive mode display will appear
+// * move probability scores so they're not covered up by active mode
 
 import processing.video.*;
+import controlP5.*;
 
 import gab.opencv.*;
 import org.opencv.core.Core;
@@ -35,6 +33,7 @@ Libsvm classifier;
 OpenCV opencv;
 
 Capture video;
+ControlP5 control;
 
 ArrayList<ArrayList<PImage>> classImages;
 ArrayList<Sample> trainingSamples;
@@ -75,6 +74,7 @@ boolean suggestionAccepted = false;
 PFont font;
 PFont bold;
 
+boolean activeModeAllowed = true;
 
 void setup() {
   opencv = new OpenCV(this, 50, 50);
@@ -105,6 +105,20 @@ void setup() {
   imageToClassify = createImage(rectW, rectH, RGB);
 
   activeDisplay = createGraphics(400, 300);
+  control = new ControlP5(this);
+
+  control.addSlider("confidenceGapThreshold")
+  .setCaptionLabel("confidence")
+    .setPosition(10, 400)
+      .setRange(0.0, 1.0)
+        .setSize(200, 20).getCaptionLabel().align(0,0).setHeight(20);
+
+  control.addToggle("activeModeAllowed")
+  .setCaptionLabel("active mode allowed?")
+    .setPosition(10, 450)
+      .setSize(50, 20)
+        .setValue(true)
+          .setMode(ControlP5.SWITCH);
 }
 
 void populateActiveDisplay() {
@@ -114,8 +128,9 @@ void populateActiveDisplay() {
     lastSuggestionAt = millis();  
     sortedClassesSnapshot = (TreeMap<Double, HashMap>)sortedClasses.clone();
     suggestionAccepted = false;
+    currentSuggestion = 0;
   }
-  
+
   Collection<HashMap> sortedClassImages = sortedClassesSnapshot.values();
   HashMap selectedClass = (HashMap)sortedClassImages.toArray()[currentSuggestion];
 
@@ -259,7 +274,9 @@ void draw() {
     text("TRAIN", w/2 + 10, 60);
     activeMode = true;
   }
-
+  if(!activeModeAllowed){
+    activeMode = false;
+  }
 
   if (activeMode) {
     populateActiveDisplay();
