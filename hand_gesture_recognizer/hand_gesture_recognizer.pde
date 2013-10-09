@@ -51,8 +51,8 @@ boolean trained = false;
 
 int numClasses = 5;
 
-TreeMap<Double, PImage> sortedClassesSnapshot;
-TreeMap<Double, PImage> sortedClasses;
+TreeMap<Double, HashMap> sortedClassesSnapshot;
+TreeMap<Double, HashMap> sortedClasses;
 
 
 PImage defaultImage;
@@ -108,44 +108,56 @@ void setup() {
 }
 
 void populateActiveDisplay() {
-  if(!prevMode && activeMode){
+  if (!prevMode && activeMode) {
+    imageToClassify.resize(rectW, rectH);
     imageToClassify.copy(video, video.width - rectW - (video.width - rectW)/2, video.height - rectH - (video.height - rectH)/2, rectW, rectH, 0, 0, rectW, rectH);
     lastSuggestionAt = millis();  
-    sortedClassesSnapshot = (TreeMap<Double,PImage>)sortedClasses.clone();
+    sortedClassesSnapshot = (TreeMap<Double, HashMap>)sortedClasses.clone();
     suggestionAccepted = false;
   }
   
-  activeDisplay.beginDraw();
-  activeDisplay.background(255, 0, 0);
-  activeDisplay.noStroke();
-  activeDisplay.fill(100);
-  activeDisplay.rect(2, 2, activeDisplay.width-4, activeDisplay.height-4);
+  Collection<HashMap> sortedClassImages = sortedClassesSnapshot.values();
+  HashMap selectedClass = (HashMap)sortedClassImages.toArray()[currentSuggestion];
 
-  activeDisplay.stroke(255);
-  activeDisplay.fill(0);
-  activeDisplay.textFont(bold, 16);
-  activeDisplay.text("PLEASE SELECT A LABEL", 20, 20);
 
-  activeDisplay.textFont(font, 14);
+  if (suggestionAccepted) {
+    Integer classId = (Integer)selectedClass.get("classId");
+    println("classifying sample as " + classId);
+    classifier.addTrainingSample( new Sample(gradientsForImage( imageToClassify, classId ), classId) );
+    classifier.train();
+    activeMode = false;
+  } 
+  else {
+    activeDisplay.beginDraw();
+    activeDisplay.background(255, 0, 0);
+    activeDisplay.noStroke();
+    activeDisplay.fill(100);
+    activeDisplay.rect(2, 2, activeDisplay.width-4, activeDisplay.height-4);
 
-  activeDisplay.text("Tap SPACE when correct label is displayed.", 20, 50);
-  activeDisplay.image(imageToClassify, 10, 70);
-  
-   Collection<PImage> sortedClassImages = sortedClassesSnapshot.values();
+    activeDisplay.stroke(255);
+    activeDisplay.fill(0);
+    activeDisplay.textFont(bold, 16);
+    activeDisplay.text("PLEASE SELECT A LABEL", 20, 20);
 
-  
-   if((millis() - lastSuggestionAt) > timePerSuggestion){
-     currentSuggestion++; 
-     if(currentSuggestion > (sortedClassImages.size() - 1)){
-       currentSuggestion = 0;
-     }
-     lastSuggestionAt = millis();
+    activeDisplay.textFont(font, 14);
+
+    activeDisplay.text("Tap SPACE when correct label is displayed.", 20, 50);
+    activeDisplay.image(imageToClassify, 10, 70);
+
+    if ((millis() - lastSuggestionAt) > timePerSuggestion) {
+      currentSuggestion++; 
+      if (currentSuggestion > (sortedClassImages.size() - 1)) {
+        currentSuggestion = 0;
+      }
+      lastSuggestionAt = millis();
+    }
+
+
+    activeDisplay.image((PImage)selectedClass.get("image"), 180, 100);  
+
+
+    activeDisplay.endDraw();
   }
-  
-  activeDisplay.image((PImage)sortedClassImages.toArray()[currentSuggestion], 180, 100);  
-
-
-  activeDisplay.endDraw();
 }
 
 void draw() {
@@ -160,20 +172,24 @@ void draw() {
 
 
   smooth();
-    textFont(font, 16);
+  textFont(font, 16);
 
 
   if (trained) {
     double[] confidence = new double[numClasses];
     double prediction = classifier.predict( new Sample(gradientsForImage(testImage )), confidence);
 
-    sortedClasses = new TreeMap<Double, PImage>();
+    sortedClasses = new TreeMap<Double, HashMap>();
     for ( int i = 0; i < confidence.length; i++ ) {
+      HashMap map = new HashMap<String, Object>();
+      map.put("classId", i);
       if (classImages.get(i).size() > 0) {
-        sortedClasses.put( confidence[i], classImages.get(i).get(0) );
+        map.put("image", classImages.get(i).get(0) );
+        sortedClasses.put( confidence[i], map);
       } 
       else {
-        sortedClasses.put( confidence[i], defaultImage );
+        map.put("image", defaultImage );
+        sortedClasses.put( confidence[i], map );
       }
     }
 
@@ -198,7 +214,8 @@ void draw() {
     translate(w/2+10, 85);
 
     for (Map.Entry entry : sortedClasses.entrySet() ) {
-      image((PImage)entry.getValue(), 0, 0);
+      HashMap h = (HashMap)entry.getValue();
+      image((PImage)h.get("image"), 0, 0);
       translate(0, 55);
       double k = (Double)entry.getKey();
       text(nfc((float)k, 2), 55, -40);
@@ -243,11 +260,11 @@ void draw() {
     activeMode = true;
   }
 
+
   if (activeMode) {
     populateActiveDisplay();
     image(activeDisplay, width/2-activeDisplay.width/2, height/2-activeDisplay.height/2);
   }
-  
 }
 
 void keyPressed() {
@@ -263,8 +280,8 @@ void keyPressed() {
       currentLabel = numClasses-1;
     }
   }
-  
-  if(key == ' '){
+
+  if (key == ' ') {
     suggestionAccepted = true;
   }
 
@@ -275,7 +292,7 @@ void keyPressed() {
   if (key == 't') {
     classifier.train();
     trained = true;
-  }  
+  }
 }
 
 void captureEvent(Capture c) {
