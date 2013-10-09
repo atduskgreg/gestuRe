@@ -59,7 +59,7 @@ double confidenceGap = 1.0;
 float confidenceGapThreshold = 0.2;
 int timesOverGap = 0; // per second
 double secondStarted = 0;
-int countThreshold = 10;
+int countThreshold = 25;
 
 boolean activeMode = false;
 boolean prevMode = false;
@@ -84,7 +84,7 @@ void setup() {
   video = new Capture(this, w/2, h/2);
   video.start();
 
-  size(1000, 600);
+  size(750, 600);
 
   trainingSamples = new ArrayList<Sample>();
 
@@ -109,32 +109,32 @@ void setup() {
 
   control.addSlider("confidenceGapThreshold")
     .setCaptionLabel("confidence")
-      .setPosition(10, 400)
+      .setPosition(150, 470)
         .setRange(0.0, 1.0)
           .setSize(200, 20).getCaptionLabel().align(0, 0).setHeight(20);
 
   control.addToggle("activeModeAllowed")
     .setCaptionLabel("active mode allowed?")
-      .setPosition(10, 450)
+      .setPosition(150, 500)
         .setSize(50, 20)
           .setValue(true)
             .setMode(ControlP5.SWITCH);
 
 
   control.addSlider("timesOverGap")
-    .setCaptionLabel("ready to ask")
-      .setPosition(10, 500)
+    .setCaptionLabel("ask")
+      .setPosition(150, 540)
         .setMax(countThreshold)
-          .setSize(200, 20).getCaptionLabel().align(0, 0).setHeight(20);
+          .setSize(200, 20).getCaptionLabel().align(0,0).setHeight(10);
 
   control.addSlider("countThreshold")
     .setCaptionLabel("time before ask")
-      .setPosition(10, 550)
-      .setValue(countThreshold)
+      .setPosition(150, 570)
+        .setValue(countThreshold)
           .setSize(200, 20).getCaptionLabel().align(0, 0).setHeight(20);
 }
 void controlEvent(ControlEvent theEvent) {
-  if(theEvent.isFrom(control.getController("countThreshold"))){
+  if (theEvent.isFrom(control.getController("countThreshold"))) {
     countThreshold = (int)control.getController("countThreshold").getValue();
     control.getController("timesOverGap").setMax(countThreshold);
   }
@@ -148,6 +148,7 @@ void populateActiveDisplay() {
     sortedClassesSnapshot = (TreeMap<Double, HashMap>)sortedClasses.clone();
     suggestionAccepted = false;
     currentSuggestion = 0;
+    timesOverGap = 0;
   }
 
   Collection<HashMap> sortedClassImages = sortedClassesSnapshot.values();
@@ -186,10 +187,7 @@ void populateActiveDisplay() {
       lastSuggestionAt = millis();
     }
 
-
     activeDisplay.image((PImage)selectedClass.get("image"), 180, 100);  
-
-
     activeDisplay.endDraw();
   }
 }
@@ -204,10 +202,8 @@ void draw() {
 
   testImage.copy(video, video.width - rectW - (video.width - rectW)/2, video.height - rectH - (video.height - rectH)/2, rectW, rectH, 0, 0, 50, 50);
 
-
   smooth();
   textFont(font, 16);
-
 
   if (trained) {
     double[] confidence = new double[numClasses];
@@ -215,15 +211,17 @@ void draw() {
 
     sortedClasses = new TreeMap<Double, HashMap>();
     for ( int i = 0; i < confidence.length; i++ ) {
-      HashMap map = new HashMap<String, Object>();
-      map.put("classId", i);
-      if (classImages.get(i).size() > 0) {
-        map.put("image", classImages.get(i).get(0) );
-        sortedClasses.put( confidence[i], map);
-      } 
-      else {
-        map.put("image", defaultImage );
-        sortedClasses.put( confidence[i], map );
+      if (confidence[i] > 0) {
+        HashMap map = new HashMap<String, Object>();
+        map.put("classId", i);
+        if (classImages.get(i).size() > 0) {
+          map.put("image", classImages.get(i).get(0) );
+          sortedClasses.put( confidence[i], map);
+        } 
+        else {
+          map.put("image", defaultImage );
+          sortedClasses.put( confidence[i], map );
+        }
       }
     }
 
@@ -239,15 +237,13 @@ void draw() {
       timesOverGap++;
     }    
 
-    println("before: " + timesOverGap);
     control.getController("timesOverGap").setValue(timesOverGap);
-    println("after: " + timesOverGap);
 
     text("label: " + prediction, w/2+70, 60);
     image(classImages.get((int)prediction).get(0), w/2+ 70, 0);
 
     pushMatrix();
-    translate(w/2+10, 85);
+    translate(10, h/2 + 80);
 
     for (Map.Entry entry : sortedClasses.entrySet() ) {
       HashMap h = (HashMap)entry.getValue();
@@ -257,12 +253,10 @@ void draw() {
       text(nfc((float)k, 2), 55, -40);
     }
     popMatrix();
-    text("CONF", w/2+75, 75);
   }
 
+  text("(a)dd label to: " + currentLabel, 10, h/2 + 20);
   text("(t)rain", 10, h/2+40);
-
-  text("(a)dd label to: " + currentLabel, 10, h/2 + 10);
 
   image(testImage, w/2+ 10, 0);
 
