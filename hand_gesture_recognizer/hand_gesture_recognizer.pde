@@ -108,17 +108,36 @@ void setup() {
   control = new ControlP5(this);
 
   control.addSlider("confidenceGapThreshold")
-  .setCaptionLabel("confidence")
-    .setPosition(10, 400)
-      .setRange(0.0, 1.0)
-        .setSize(200, 20).getCaptionLabel().align(0,0).setHeight(20);
+    .setCaptionLabel("confidence")
+      .setPosition(10, 400)
+        .setRange(0.0, 1.0)
+          .setSize(200, 20).getCaptionLabel().align(0, 0).setHeight(20);
 
   control.addToggle("activeModeAllowed")
-  .setCaptionLabel("active mode allowed?")
-    .setPosition(10, 450)
-      .setSize(50, 20)
-        .setValue(true)
-          .setMode(ControlP5.SWITCH);
+    .setCaptionLabel("active mode allowed?")
+      .setPosition(10, 450)
+        .setSize(50, 20)
+          .setValue(true)
+            .setMode(ControlP5.SWITCH);
+
+
+  control.addSlider("timesOverGap")
+    .setCaptionLabel("ready to ask")
+      .setPosition(10, 500)
+        .setMax(countThreshold)
+          .setSize(200, 20).getCaptionLabel().align(0, 0).setHeight(20);
+
+  control.addSlider("countThreshold")
+    .setCaptionLabel("time before ask")
+      .setPosition(10, 550)
+      .setValue(countThreshold)
+          .setSize(200, 20).getCaptionLabel().align(0, 0).setHeight(20);
+}
+void controlEvent(ControlEvent theEvent) {
+  if(theEvent.isFrom(control.getController("countThreshold"))){
+    countThreshold = (int)control.getController("countThreshold").getValue();
+    control.getController("timesOverGap").setMax(countThreshold);
+  }
 }
 
 void populateActiveDisplay() {
@@ -220,7 +239,9 @@ void draw() {
       timesOverGap++;
     }    
 
-
+    println("before: " + timesOverGap);
+    control.getController("timesOverGap").setValue(timesOverGap);
+    println("after: " + timesOverGap);
 
     text("label: " + prediction, w/2+70, 60);
     image(classImages.get((int)prediction).get(0), w/2+ 70, 0);
@@ -270,11 +291,11 @@ void draw() {
 
   prevMode = activeMode;
 
-  if (timesOverGap > countThreshold) {
+  if (timesOverGap >= countThreshold) {
     text("TRAIN", w/2 + 10, 60);
     activeMode = true;
   }
-  if(!activeModeAllowed){
+  if (!activeModeAllowed) {
     activeMode = false;
   }
 
